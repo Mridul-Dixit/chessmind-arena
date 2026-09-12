@@ -12,6 +12,7 @@ class ChessService:
             "turn": self._get_turn(),
             "is_check": self.board.is_check(),
             "is_game_over": self.board.is_game_over(),
+            "result": self._get_result()
         }
 
     def make_move(self, move: str):
@@ -31,6 +32,7 @@ class ChessService:
             "turn": self._get_turn(),
             "is_check": self.board.is_check(),
             "is_game_over": self.board.is_game_over(),
+            "result": self._get_result(),
         }
 
     def reset_game(self):
@@ -40,3 +42,25 @@ class ChessService:
 
     def _get_turn(self):
         return "white" if self.board.turn == chess.WHITE else "black"
+
+    def _get_result(self):
+        if not self.board.is_game_over():
+            return None
+
+        if self.board.is_checkmate():
+            winner = "black" if self.board.turn == chess.WHITE else "white"
+            return f"{winner}_wins"
+
+        if self.board.is_stalemate():
+            return "draw_stalemate"
+
+        if self.board.is_insufficient_material():
+            return "draw_insufficient_material"
+
+        if self.board.is_fifty_moves():
+            return "draw_fifty_moves"
+
+        if self.board.is_repetition():
+            return "draw_repetition"
+
+        return "draw"
