@@ -3,3 +3,7 @@ uvicorn
 python-chess
 pydantic
 pytest
+transformers
+torch
+openai
+python-dotenv

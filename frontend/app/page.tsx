@@ -14,6 +14,7 @@ export default function Home() {
   const [game, setGame] = useState(new Chess());
   const [boardState, setBoardState] = useState<BoardState | null>(null);
   const [error, setError] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
 
   useEffect(() => {
     async function loadBoard() {
@@ -40,8 +41,15 @@ export default function Home() {
   }) {
     if (!targetSquare) return false;
 
+    // Human can only play White.
+    if (boardState?.turn !== "white") return false;
+
+    // Don't allow moves while the AI is thinking.
+    if (isThinking) return false;
+
+    // Don't allow moves after the game has ended.
     if (boardState?.is_game_over) return false;
-    
+
     setError("");
 
     const gameCopy = new Chess(game.fen());
@@ -57,11 +65,16 @@ export default function Home() {
 
       const uciMove = `${sourceSquare}${targetSquare}${move.promotion ?? ""}`;
 
-      // Optimistically update the board so react-chessboard
-      // accepts the drag immediately.
+      // Optimistically update the board so the drag is reflected immediately.
       setGame(gameCopy);
 
-      // Backend remains the source of truth.
+      // The backend will:
+      // 1. Apply the human's White move.
+      // 2. Ask the LLM for Black's move.
+      // 3. Validate and apply the LLM move.
+      // 4. Return the resulting board state.
+      setIsThinking(true);
+
       makeMove(uciMove)
         .then((state) => {
           setBoardState(state);
@@ -76,6 +89,9 @@ export default function Home() {
           if (boardState) {
             setGame(new Chess(boardState.fen));
           }
+        })
+        .finally(() => {
+          setIsThinking(false);
         });
 
       return true;
@@ -87,6 +103,7 @@ export default function Home() {
   async function handleReset() {
     try {
       setError("");
+      setIsThinking(false);
 
       const state = await resetGame();
 
@@ -129,13 +146,17 @@ export default function Home() {
 
                 <div className="flex justify-between">
                   <span>Black</span>
-                  <span>Human</span>
+                  <span>LLM</span>
                 </div>
 
                 <div className="flex justify-between">
                   <span>Turn</span>
                   <span>
-                    {boardState?.turn === "white" ? "White" : "Black"}
+                    {isThinking
+                      ? "AI thinking..."
+                      : boardState?.turn === "white"
+                        ? "White"
+                        : "Black"}
                   </span>
                 </div>
 
@@ -147,12 +168,24 @@ export default function Home() {
                 </div>
               </div>
 
+              {isThinking && (
+                <div className="mt-4 rounded-lg border border-gray-700 bg-gray-800 p-3 text-center">
+                  <p className="font-semibold">
+                    AI is thinking...
+                  </p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Waiting for the LLM to choose a move.
+                  </p>
+                </div>
+              )}
+
               {boardState?.is_game_over && (
                 <div className="mt-4 rounded-lg border border-gray-700 bg-gray-800 p-3 text-center">
                   <p className="font-semibold">
                     {boardState.result === "white_wins" && "White wins!"}
                     {boardState.result === "black_wins" && "Black wins!"}
-                    {boardState.result === "draw_stalemate" && "Draw by stalemate"}
+                    {boardState.result === "draw_stalemate" &&
+                      "Draw by stalemate"}
                     {boardState.result === "draw_insufficient_material" &&
                       "Draw by insufficient material"}
                     {boardState.result === "draw_fifty_moves" &&

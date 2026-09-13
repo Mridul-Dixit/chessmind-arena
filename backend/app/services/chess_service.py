@@ -1,10 +1,13 @@
 import chess
 
+from app.llm.openrouter import OpenRouterChessModel
+
 
 class ChessService:
 
     def __init__(self):
         self.board = chess.Board()
+        self.llm = OpenRouterChessModel()
 
     def get_board_state(self):
         return {
@@ -12,7 +15,7 @@ class ChessService:
             "turn": self._get_turn(),
             "is_check": self.board.is_check(),
             "is_game_over": self.board.is_game_over(),
-            "result": self._get_result()
+            "result": self._get_result(),
         }
 
     def make_move(self, move: str):
@@ -26,14 +29,41 @@ class ChessService:
 
         self.board.push(chess_move)
 
-        return {
-            "move": move,
-            "fen": self.board.fen(),
-            "turn": self._get_turn(),
-            "is_check": self.board.is_check(),
-            "is_game_over": self.board.is_game_over(),
-            "result": self._get_result(),
-        }
+        # If the game has ended after the human move,
+        # do not ask the LLM for another move.
+        if self.board.is_game_over():
+            return self.get_board_state()
+
+        # Human is White, LLM is Black.
+        if self.board.turn == chess.BLACK:
+            self._make_llm_move()
+
+        return self.get_board_state()
+
+    def _make_llm_move(self):
+        legal_moves = [
+            move.uci()
+            for move in self.board.legal_moves
+        ]
+
+        llm_move = self.llm.get_move(
+            self.board.fen(),
+            legal_moves,
+        )
+
+        try:
+            chess_move = chess.Move.from_uci(llm_move)
+        except ValueError:
+            raise ValueError(
+                f"LLM returned invalid UCI move: {llm_move}"
+            )
+
+        if chess_move not in self.board.legal_moves:
+            raise ValueError(
+                f"LLM returned illegal move: {llm_move}"
+            )
+
+        self.board.push(chess_move)
 
     def reset_game(self):
         self.board.reset()
