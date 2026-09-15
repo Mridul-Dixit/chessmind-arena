@@ -1,8 +1,8 @@
 from app.llm.openrouter import OpenRouterChessModel
-
+from app.llm.huggingface import HuggingFaceChessModel
 
 def main():
-    model = OpenRouterChessModel(model_name="nex-agi/nex-n2.5-pro:free")
+    model = HuggingFaceChessModel(model_name="Qwen/Qwen2.5-1.5B") 
 
     fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 

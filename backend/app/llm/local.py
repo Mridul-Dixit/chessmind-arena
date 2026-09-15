@@ -1,4 +1,5 @@
-from transformers import pipeline
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from app.llm.base import ChessModel
 
@@ -6,35 +7,66 @@ from app.llm.base import ChessModel
 class LocalChessModel(ChessModel):
 
     def __init__(self, model_name: str):
-        self.model = pipeline(
-            "text-generation",
-            model=model_name,
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float32,
         )
+
+        self.model.to("cpu")
+        self.model.eval()
 
     def get_move(self, fen: str, legal_moves: list[str]) -> str:
         prompt = f"""You are playing chess.
 
-Position:
+Current position:
 {fen}
 
 Legal moves:
 {", ".join(legal_moves)}
 
-Choose exactly one move from the legal moves.
-Return only the UCI move.
+Choose exactly ONE move from the legal moves.
+
+Return ONLY the move in UCI format.
+Do not provide an explanation.
 """
 
-        response = self.model(
-            prompt,
-            max_new_tokens=10,
-            do_sample=False,
-            return_full_text=False,
+        messages = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
         )
 
-        generated_text = response[0]["generated_text"].strip()
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+        )
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=10,
+                do_sample=False,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        generated_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+
+        generated_text = self.tokenizer.decode(
+            generated_tokens,
+            skip_special_tokens=True,
+        ).strip()
 
         for move in legal_moves:
-            if move in generated_text:
+            if generated_text == move:
                 return move
 
         raise ValueError(
