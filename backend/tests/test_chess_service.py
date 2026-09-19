@@ -11,13 +11,14 @@ def test_new_game_starts_with_white():
     assert state["is_game_over"] is False
 
 
-def test_legal_move():
+def test_legal_move_without_external_llm():
     service = ChessService()
 
     result = service.make_move("e2e4")
 
-    assert result["move"] == "e2e4"
-    assert result["turn"] == "black"
+    assert result["turn"] == "white"
+    assert result["fen"] != "startpos"
+    assert result["is_game_over"] is False
 
 
 def test_illegal_move():

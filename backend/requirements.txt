@@ -8,3 +8,4 @@ torch
 openai
 python-dotenv
 accelerate
+huggingface_hub
