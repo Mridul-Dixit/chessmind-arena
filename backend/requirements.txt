@@ -3,3 +3,9 @@ uvicorn
 python-chess
 pydantic
 pytest
+transformers
+torch
+openai
+python-dotenv
+accelerate
+huggingface_hub
