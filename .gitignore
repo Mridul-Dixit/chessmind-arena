@@ -214,3 +214,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ML / training
+ml/data/
+ml/checkpoints/
+ml/__pycache__/
+ml/**/*.pyc

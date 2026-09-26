@@ -1,0 +1,11 @@
+torch
+torchvision
+python-chess
+pandas
+numpy
+pyarrow
+scikit-learn
+tqdm
+matplotlib
+jupyter
+ipykernel
