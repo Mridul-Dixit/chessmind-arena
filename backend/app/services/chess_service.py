@@ -2,7 +2,7 @@ import os
 
 import chess
 
-from app.llm.huggingface import HuggingFaceChessModel
+from app.llm.model_factory import build_chess_model
 
 
 class FallbackChessModel:
@@ -16,29 +16,7 @@ class ChessService:
 
     def __init__(self):
         self.board = chess.Board()
-        self.llm = None
-
-    def _build_llm(self):
-        if self.llm is not None:
-            return self.llm
-
-        if os.getenv("HF_TOKEN"):
-            try:
-                self.llm = HuggingFaceChessModel(model_name="openai/gpt-oss-120b:groq")
-                return self.llm
-            except ValueError:
-                pass
-
-        if os.getenv("OPENROUTER_API_KEY"):
-            try:
-                from app.llm.openrouter import OpenRouterChessModel
-                self.llm = OpenRouterChessModel(model_name="openrouter/free")
-                return self.llm
-            except ValueError:
-                pass
-
-        self.llm = FallbackChessModel()
-        return self.llm
+        self.chess_model = build_chess_model()
 
     def get_board_state(self):
         return {
@@ -63,39 +41,32 @@ class ChessService:
         # If the game has ended after the human move,
         # do not ask the LLM for another move.
         if self.board.is_game_over():
-            return self.get_board_state()
+            state = self.get_board_state()
+            state["move"] = move
+            return state
 
         # Human is White, LLM is Black.
         if self.board.turn == chess.BLACK:
-            self._make_llm_move()
+            self._make_ai_move()
 
         state = self.get_board_state()
         state["move"] = move
         return state
 
-    def _make_llm_move(self):
-        llm = self._build_llm()
+    def _make_ai_move(self):
         legal_moves = [
-            move.uci()
-            for move in self.board.legal_moves
+            move.uci() for move in self.board.legal_moves
         ]
 
-        llm_move = llm.get_move(
+        ai_move = self.chess_model.get_move(
             self.board.fen(),
             legal_moves,
         )
 
-        try:
-            chess_move = chess.Move.from_uci(llm_move)
-        except ValueError:
-            raise ValueError(
-                f"LLM returned invalid UCI move: {llm_move}"
-            )
+        chess_move = chess.Move.from_uci(ai_move)
 
         if chess_move not in self.board.legal_moves:
-            raise ValueError(
-                f"LLM returned illegal move: {llm_move}"
-            )
+            raise ValueError(f"AI returned illegal move: {ai_move}")
 
         self.board.push(chess_move)
 
